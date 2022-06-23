@@ -1,105 +1,57 @@
-import copy
-import math
-import os
 import re
 
-import networkx
 from tqdm import tqdm
 
-from definitions import aspect_list, experimental_evidence_codes, annot_type_all, annot_type_no_exp, aspect_order
+from util.definitions import aspect_list, experimental_evidence_codes, annot_type_all, annot_type_no_exp, aspect_order
 
 
 def flatten_list(input_list):
-    return [item for sublist in input_list for item in sublist]
+    return [item for sublist in input_list for item in sorted(sublist)]
 
 
-def tab_itr(fp, skip="!", indices=None):
-    for line in fp:
-        line = line.rstrip('\n')
-        if line.startswith(skip):
-            continue
-        info = [i.strip() for i in line.split('\t')]
-        try:
-            if indices is None:
-                yield info
-            else:
-                yield [info[idx] for idx in indices]
-        except IndexError:
-            continue
+def delim_parser(fp, delim='\t', indices=None, ignore=None):
+    if indices is None:
+        indices = [0, 1]
+    if ignore is None:
+        ignore = ['!', '#']
+    for idx, line in enumerate(fp):
+        if len(line.lstrip()) == 0:
+            yield idx, None
+        elif True in [line.lstrip().startswith(i) for i in ignore]:
+            yield idx, None
+        else:
+            line = line.rstrip('\n')
+            info = re.split(delim, line)
+            try:
+                yield idx, [info[idx] for idx in indices]
+            except IndexError:
+                yield idx, None
 
 
-def read_gff(gff_path, attribute_split=';', feature_type=None, attribute_type=None, attribute_must_include=None):
-    if feature_type is None:
-        feature_type = ['gene']
-    if attribute_type is None:
-        attribute_type = ['ID=']
-    if attribute_must_include is None:
-        attribute_must_include = ''
-    attr_regex = re.compile('|'.join(['^' + a for a in attribute_type]))
-    res = []
-    with open(gff_path, 'r') as gp:
-        for feature, attribute in tab_itr(gp, indices=[2, -1]):
-            if feature in feature_type and attribute_must_include in attribute:
-                info = [re.sub(attr_regex, '', attr) for attr in attribute.split(attribute_split)
-                        if re.search(attr_regex, attr)]
-                res.append(info)
-    return res
+def dict_set_helper(input_dict, key, val):
+    try:
+        if type(val) is list or type(val) is set:
+            input_dict[key].update(val)
+        else:
+            input_dict[key].add(val)
+    except KeyError:
+        if type(val) is list or type(val) is set:
+            input_dict.setdefault(key, set(val))
+        else:
+            input_dict.setdefault(key, {val})
+    return input_dict
 
 
-def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=True, protein_to_gene=None, id_list=None):
-    gaf_dict = {}
-    for aspect in sorted(aspect_list.keys()):
-        aspect_dict = {
-            "exp": set(),
-            "pred": set()
-        }
-        gaf_dict.setdefault(aspect, aspect_dict)
-    with open(gaf_path, 'r') as fp:
-        for key_id, db_obj_symbol, go_id, ev_code, aspect, db_obj_name, db_obj_syn, db_obj_type, taxon_ids \
-                in tqdm(tab_itr(fp, indices=[id_idx, 2, 4, 6, 8, 9, 10, 11, 12])):
-            db_obj_syn = set([syn for syn in db_obj_syn.split('|') if syn != ''])
-            db_potential_names = set(db_obj_syn | {key_id, db_obj_symbol, db_obj_name})
-            if db_obj_id_only is True:
-                db_potential_names = {key_id}
-            if protein_to_gene is None:
-                # potential_gene_ids = set([g.upper() for g in sorted(db_potential_names) if g != ''])
-                potential_gene_ids = [g for g in sorted(db_potential_names) if g != '']
-            else:
-                # potential_gene_ids = set()
-                potential_gene_ids = []
-                for db_name in sorted(db_potential_names):
-                    try:
-                        # potential_gene_ids.update([g.lower() for g in sorted(protein_to_gene[db_name])])
-                        potential_gene_ids += [g for g in protein_to_gene[db_name]]
-                    except KeyError:
-                        continue
-            if taxon_list is not None:
-                taxon_ids = set([re.sub("^taxon:", "", taxon) for taxon in taxon_ids.split('|')])
-                if len(taxon_ids & set(taxon_list)) == 0:
-                    continue
-            if len(potential_gene_ids) > 0:
-                # gene_id = sorted(potential_gene_ids)[0]
-                if id_list is not None:
-                    gene_id = sorted(set(id_list) & set(potential_gene_ids))
-                    if len(gene_id) > 0:
-                        gene_id = sorted(set(id_list) & set(potential_gene_ids))[0]
-                    else:
-                        continue
-                else:
-                    gene_id = potential_gene_ids[0]
-                if aspect in gaf_dict and ev_code in experimental_evidence_codes:
-                    gaf_dict[aspect]['exp'].add(gene_id)
-                elif aspect in gaf_dict:
-                    gaf_dict[aspect]['pred'].add(gene_id)
-    return gaf_dict
-
-
-def read_tab_file_to_kv(tab_file_path, key_idx=1, val_idx=0, val_sep=None, one_val=False, key_prefix=""):
+def read_tab_file_to_kv(tab_file_path, key_idx=1, val_idx=0, val_sep=None, one_val=False, key_prefix="", skip=None):
     if val_sep is None:
         val_sep = [' ']
+    if skip is None:
+        skip = ['yourlist']
     key_val_map = {}
     with open(tab_file_path, 'r') as fp:
-        for info in tab_itr(fp, skip='yourlist', indices=[key_idx, val_idx]):
+        for line_num, info in tqdm(delim_parser(fp, ignore=skip, indices=[key_idx, val_idx])):
+            if info is None:
+                continue
             key = key_prefix + info[0]
             val_list = [re.sub(r'\W+$', '', re.sub(r'^\W+', '', i)) for i in re.split('|'.join(val_sep), info[1])
                         if re.sub(r'\W+$', '', re.sub(r'^\W+', '', i)) != '']
@@ -107,120 +59,264 @@ def read_tab_file_to_kv(tab_file_path, key_idx=1, val_idx=0, val_sep=None, one_v
                 continue
             if one_val is True:
                 val_list = [val_list[0]]
-            try:
-                key_val_map[key] += val_list
-            except KeyError:
-                key_val_map.setdefault(key, val_list)
+            key_val_map = dict_set_helper(key_val_map, key, val_list)
     return key_val_map
 
 
-def read_names_dmp(names_dmp_path):
-    taxon_to_scientific_name = {}
-    with open(names_dmp_path, 'r') as fp:
-        for line in fp:
-            info = re.split(r'\t+\|\t+', line)
-            scientific = False
-            for i in info:
-                if 'scientific name' in i:
-                    scientific = True
-            if scientific is True:
-                taxon = info[0].strip()
-                name = info[1].strip()
-                taxon_to_scientific_name.setdefault(taxon, name)
-    return taxon_to_scientific_name
+def read_tair2uniprot(file_path, agi_list):
+    ids_to_agi = {}
+    with open(file_path, 'r') as fp:
+        for line_num, info in tqdm(delim_parser(fp, indices=[0, 1, 2])):
+            if info is not None:
+                # remove isoforms
+                uniprot_id = re.sub('-\d$', '', info[0])
+                tair_id = info[1]
+                agi_id = info[2]
+                ids_to_agi = dict_set_helper(ids_to_agi, tair_id, agi_id)
+                ids_to_agi = dict_set_helper(ids_to_agi, uniprot_id, agi_id)
+        for agi in sorted(set(agi_list)):
+            ids_to_agi = dict_set_helper(ids_to_agi, agi, agi)
+    return ids_to_agi
 
 
-# Reverse the labeling
-def subset_dict_by_keys(key_list, input_dict):
-    subset_dict = {}
-    not_found_dict = {}
-    input_copy = dict(input_dict)
-    for key in input_copy.keys():
-        val = copy.deepcopy(input_copy[key])
-        if key in key_list:
-            subset_dict.setdefault(key, val)
-        else:
-            not_found_dict.setdefault(key, val)
-    return subset_dict, not_found_dict
+def read_gff(gff_path, attribute_split=';', feature_type=None, attribute_type=None):
+    if feature_type is None:
+        feature_type = ['gene']
+    if attribute_type is None:
+        attribute_type = ['ID=']
+    attr_regex = re.compile('|'.join(['^' + a for a in attribute_type]))
+    res = []
+    with open(gff_path, 'r', errors='replace') as gp:
+        for line_num, info in tqdm(delim_parser(gp, indices=[2, -1])):
+            if info is None:
+                continue
+            feature, attribute = info
+            if feature in feature_type:
+                info = [re.sub(attr_regex, '', attr) for attr in attribute.split(attribute_split)
+                        if re.search(attr_regex, attr)]
+                res.append(info)
+    return res
 
 
-def highest_power_of_10(n):
-    return 10 ** (int(math.log10(n)))
+def lists_of_seq_helper(gene_id, aspect, list_of_ev, list_of_mf, list_of_mf_of_ev, list_of_cc, list_of_cc_of_ev,
+                        list_of_bp, list_of_bp_of_ev):
+    list_of_ev.add(gene_id)
+    if aspect == 'F' or aspect == 'molecular_function':
+        list_of_mf.add(gene_id)
+        list_of_mf_of_ev.add(gene_id)
+    elif aspect == 'C' or aspect == 'cellular_component':
+        list_of_cc.add(gene_id)
+        list_of_cc_of_ev.add(gene_id)
+    elif aspect == 'P' or aspect == 'biological_process':
+        list_of_bp.add(gene_id)
+        list_of_bp_of_ev.add(gene_id)
+    return list_of_ev, list_of_mf, list_of_mf_of_ev, list_of_cc, list_of_cc_of_ev, list_of_bp, list_of_bp_of_ev
 
 
-def combine_non_list_val_dict_by_keys(list_of_dicts):
-    combined_dict = {}
-    for d in tqdm(list_of_dicts):
-        d_copy = dict(d)
-        for key in d_copy.keys():
-            val = d_copy[key]
-            if type(d_copy[key]) is not int and type(d_copy[key]) is not str:
-                print('Val Type Error', type(d_copy[key]), val)
+def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_to_gene=None, id_list=None):
+    # ev_code in experimental_evidence_codes
+    list_of_exp = set()
+    list_of_comp = set()
+
+    # aspect == 'F' (molecular function)
+    list_of_mf_seqs = set()
+    list_of_mf_exp = set()
+    list_of_mf_comp = set()
+
+    # aspect == 'C' (cellular component).
+    list_of_cc_seqs = set()
+    list_of_cc_exp = set()
+    list_of_cc_comp = set()
+
+    # aspect == 'P' (biological process)
+    list_of_bp_seqs = set()
+    list_of_bp_exp = set()
+    list_of_bp_comp = set()
+
+    with open(gaf_path, 'r') as fp:
+        for line_num, info in tqdm(delim_parser(fp, indices=[id_idx, 2, 4, 6, 8, 9, 10, 11, 12])):
+            if info is None:
+                continue
+            key_id, db_obj_symbol, go_id, ev_code, aspect, db_obj_name, db_obj_syn, db_obj_type, taxon_ids = info
+            if taxon_list is not None:
+                taxon_ids = set([re.sub("^taxon:", "", taxon) for taxon in taxon_ids.split('|')])
+                if len(taxon_ids & set(taxon_list)) == 0:
+                    continue
+            db_obj_syn = set([syn for syn in db_obj_syn.split('|') if syn != ''])
+            db_potential_names = [key_id]
+            if db_obj_id_only is not True:
+                db_potential_names += sorted(set(db_obj_syn | {db_obj_symbol, db_obj_name}) - {key_id})
+            if protein_to_gene is None:
+                potential_gene_ids = [g for g in db_potential_names if g != '']
             else:
-                combined_dict.setdefault(key, val)
-    return combined_dict
-
-
-def combine_list_val_dict_by_keys(list_of_dicts):
-    combined_dict = {}
-    for d in tqdm(list_of_dicts):
-        d_copy = dict(d)
-        for key in d_copy.keys():
-            val = d_copy[key]
-            try:
-                if type(d_copy[key]) is set:
-                    combined_dict[key] += list(sorted(val))
-                elif type(d_copy[key]) is not list:
-                    combined_dict[key].append(val)
+                potential_gene_ids = []
+                for db_name in sorted(db_potential_names):
+                    try:
+                        potential_gene_ids += [g for g in sorted(protein_to_gene[db_name])]
+                    except KeyError:
+                        continue
+            if len(potential_gene_ids) > 0:
+                if id_list is not None:
+                    gene_id_list = sorted(set(id_list) & set(potential_gene_ids))
+                    if len(gene_id_list) > 0:
+                        gene_id = gene_id_list[0]
+                    else:
+                        gene_id = None
                 else:
-                    combined_dict[key] += list(val)
-            except KeyError:
-                if type(d_copy[key]) is set:
-                    combined_dict.setdefault(key, list(sorted(val)))
-                elif type(d_copy[key]) is not list:
-                    combined_dict.setdefault(key, [val])
-                else:
-                    combined_dict.setdefault(key, list(val))
-    return combined_dict
-
-
-def avg_list_of_lists(list_of_lists):
-    avg_list = []
-    for idx, l in enumerate(list_of_lists):
-        try:
-            if idx == 0:
-                avg_list = [float(num) for num in l]
+                    gene_id = potential_gene_ids[0]
             else:
-                for i in range(0, len(l)):
-                    avg_list[i] += float(l[i])
-        except ValueError:
-            continue
-    for idx, n in enumerate(avg_list):
-        avg_list[idx] = n / len(list_of_lists)
-    return avg_list
+                gene_id = None
+            if ev_code in experimental_evidence_codes and gene_id is not None:
+                list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp, \
+                    list_of_bp_seqs, list_of_bp_exp = lists_of_seq_helper(
+                        gene_id, aspect, list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp,
+                        list_of_bp_seqs, list_of_bp_exp)
+            elif gene_id is not None:
+                list_of_comp, list_of_mf_seqs, list_of_mf_comp, list_of_cc_seqs, list_of_cc_comp, \
+                    list_of_bp_seqs, list_of_bp_comp = lists_of_seq_helper(
+                        gene_id, aspect, list_of_comp, list_of_mf_seqs, list_of_mf_comp,
+                        list_of_cc_seqs, list_of_cc_comp, list_of_bp_seqs, list_of_bp_comp)
+    return \
+        sorted(list_of_exp), sorted(list_of_comp - list_of_exp), \
+        sorted(list_of_mf_seqs), sorted(list_of_mf_exp), sorted(list_of_mf_comp - list_of_mf_exp), \
+        sorted(list_of_cc_seqs), sorted(list_of_cc_exp), sorted(list_of_cc_comp - list_of_cc_exp), \
+        sorted(list_of_bp_seqs), sorted(list_of_bp_exp), sorted(list_of_bp_comp - list_of_bp_exp),
 
 
-def to_graph(l):
-    G = networkx.Graph()
-    for part in l:
-        # each sublist is a bunch of nodes
-        G.add_nodes_from(part)
-        # it also imlies a number of edges:
-        G.add_edges_from(to_edges(part))
-    return G
+def read_phytozome_annotation_info(annotation_info_path, go_dag):
+    # ev_code in experimental_evidence_codes
+    list_of_comp = set()
+
+    # res.namespace == 'molecular_function'
+    list_of_mf_seqs = set()
+    list_of_mf_comp = set()
+
+    # res.namespace == 'cellular_component'
+    list_of_cc_seqs = set()
+    list_of_cc_comp = set()
+
+    # res.namespace == 'biological_process'
+    list_of_bp_seqs = set()
+    list_of_bp_comp = set()
+
+    unfound_go_terms = set()
+    with open(annotation_info_path, 'r') as fp:
+        for line_num, info in tqdm(delim_parser(fp, indices=[1, 9])):
+            if info is None:
+                continue
+            locus_id, go_field = info
+            go_id_list = [go.strip() for go in re.split(r'[, ]', go_field) if go.strip() != '']
+            if len(go_id_list) > 0:
+                for go_id in go_id_list:
+                    res = go_dag.query_term(go_id)
+                    if res is not None:
+                        lists_of_seq_helper(locus_id, res.namespace, list_of_comp, list_of_mf_seqs, list_of_mf_comp,
+                                            list_of_cc_seqs, list_of_cc_comp, list_of_bp_seqs, list_of_bp_comp)
+                    else:
+                        unfound_go_terms.add(go_id)
+    print("Unfound GO", unfound_go_terms)
+    return \
+        sorted(list_of_comp), sorted(list_of_mf_seqs), sorted(list_of_mf_comp), \
+        sorted(list_of_cc_seqs), sorted(list_of_cc_comp), \
+        sorted(list_of_bp_seqs), sorted(list_of_bp_comp),
 
 
-def to_edges(l):
-    """
-        treat `l` as a Graph and returns it's edges
-        to_edges(['a','b','c','d']) -> [(a,b), (b,c),(c,d)]
-    """
-    it = iter(l)
-    last = next(it)
+def get_num_and_pct(list_of_seqs, list_of_exp, list_of_comp, list_of_unknown):
+    num_of_genes = len(list_of_seqs)
+    num_of_genes_exp = len(list_of_exp)
+    pct_of_genes_exp = '{percent:.2%}'.format(percent=float(num_of_genes_exp) / float(num_of_genes))
+    num_of_genes_comp = len(list_of_comp)
+    pct_of_genes_comp = '{percent:.2%}'.format(percent=float(num_of_genes_comp) / float(num_of_genes))
+    num_of_genes_unknown = len(list_of_unknown)
+    pct_of_genes_unknown = '{percent:.2%}'.format(percent=float(num_of_genes_unknown) / float(num_of_genes))
+    return \
+        str(num_of_genes), str(num_of_genes_exp), pct_of_genes_exp, str(num_of_genes_comp), pct_of_genes_comp, \
+        str(num_of_genes_unknown), pct_of_genes_unknown
 
-    for current in it:
-        yield last, current
-        last = current
+
+def output_list_of_species_class(list_of_species_class, output_path):
+    with open(output_path, 'w') as op:
+        op.write(
+            '\t'.join(['ID', 'Taxon', 'Species', 'Type', 'Sequence Source', 'Sequence URL', 'GAF Source', 'GAF URL',
+                       'Name', 'Num. of Genes', 'Num. of Genes w/ Experimental evidence',
+                       'Num. of Genes w/ Computational evidence', 'Num. of Genes with no GO annotations',
+                       'Num. of Molecular function (Experimental evidence)',
+                       'Pct. of Molecular function (Experimental evidence)',
+                       'Num. of Molecular function (Predicted)', 'Pct. of Molecular function (Predicted)',
+                       'Num. of Molecular function (Unknown)', 'Pct. of Molecular function (Unknown)',
+                       'Num. of Biological process (Experimental evidence)',
+                       'Pct. of Biological process (Experimental evidence)',
+                       'Num. of Biological process (Predicted)', 'Pct. of Biological process (Predicted)',
+                       'Num. of Biological process (Unknown)', 'Pct. of Biological process (Unknown)',
+                       'Num. of Cellular component (Experimental evidence)',
+                       'Pct. of Cellular component (Experimental evidence)',
+                       'Num. of Cellular component (Predicted)', 'Pct. of Cellular component (Predicted)',
+                       'Num. of Cellular component (Unknown)', 'Pct. of Cellular component (Unknown)',
+                       'Date', ]) + '\n')
+        for species_class in list_of_species_class:
+            date = getattr(species_class, 'date')
+            species_id = getattr(species_class, 'species_id')
+            taxon = str(getattr(species_class, 'species_taxon'))
+            species = getattr(species_class, 'species_name')
+            name = getattr(species_class, 'species_abbr')
+            species_type = getattr(species_class, 'species_type')
+
+            sequence_source = getattr(species_class, 'gene_source')
+            # gene_version = getattr(species_class, 'gene_version')
+            sequence_url = getattr(species_class, 'gene_link')
+
+            gaf_source = getattr(species_class, 'annot_source')
+            # annot_version = getattr(species_class, 'annot_version')
+            gaf_url = getattr(species_class, 'annot_link')
+
+            # Sequences
+            list_of_seqs = getattr(species_class, 'list_of_seqs')
+            list_of_exp = getattr(species_class, 'list_of_exp')
+            list_of_comp = getattr(species_class, 'list_of_comp')
+            list_of_unknown = getattr(species_class, 'list_of_unknown')
+
+            num_of_genes, num_of_genes_exp, pct_of_genes_exp, num_of_genes_comp, pct_of_genes_comp, \
+                num_of_genes_unknown, pct_of_genes_unknown = \
+                get_num_and_pct(list_of_seqs, list_of_exp, list_of_comp, list_of_unknown)
+
+            # Domain
+            # list_of_mf_seqs = getattr(species_class, 'list_of_mf_seqs')
+            list_of_mf_exp = getattr(species_class, 'list_of_mf_exp')
+            list_of_mf_comp = getattr(species_class, 'list_of_mf_comp')
+            list_of_mf_unknown = getattr(species_class, 'list_of_mf_unknown')
+
+            _, num_of_mfs_exp, pct_of_mfs_exp, num_of_mfs_comp, pct_of_mfs_comp, \
+                num_of_mfs_unknown, pct_of_mfs_unknown = \
+                get_num_and_pct(list_of_seqs, list_of_mf_exp, list_of_mf_comp, list_of_mf_unknown)
+
+            # list_of_cc_seqs = getattr(species_class, 'list_of_cc_seqs')
+            list_of_cc_exp = getattr(species_class, 'list_of_cc_exp')
+            list_of_cc_comp = getattr(species_class, 'list_of_cc_comp')
+            list_of_cc_unknown = getattr(species_class, 'list_of_cc_unknown')
+
+            _, num_of_ccs_exp, pct_of_ccs_exp, num_of_ccs_comp, pct_of_ccs_comp, \
+                num_of_ccs_unknown, pct_of_ccs_unknown = \
+                get_num_and_pct(list_of_seqs, list_of_cc_exp, list_of_cc_comp, list_of_cc_unknown)
+
+            # list_of_bp_seqs = getattr(species_class, 'list_of_bp_seqs')
+            list_of_bp_exp = getattr(species_class, 'list_of_bp_exp')
+            list_of_bp_comp = getattr(species_class, 'list_of_bp_comp')
+            list_of_bp_unknown = getattr(species_class, 'list_of_bp_unknown')
+
+            _, num_of_bps_exp, pct_of_bps_exp, num_of_bps_comp, pct_of_bps_comp, \
+                num_of_bps_unknown, pct_of_bps_unknown = \
+                get_num_and_pct(list_of_seqs, list_of_bp_exp, list_of_bp_comp, list_of_bp_unknown)
+
+            op.write(
+                '\t'.join([species_id, taxon, species, species_type, sequence_source, sequence_url, gaf_source, gaf_url,
+                           name, num_of_genes, num_of_genes_exp, num_of_genes_comp, num_of_genes_unknown,
+                           num_of_mfs_exp, pct_of_mfs_exp, num_of_mfs_comp, pct_of_mfs_comp,
+                           num_of_mfs_unknown, pct_of_mfs_unknown, num_of_bps_exp, pct_of_bps_exp,
+                           num_of_bps_comp, pct_of_bps_comp, num_of_bps_unknown, pct_of_bps_unknown,
+                           num_of_ccs_exp, pct_of_ccs_exp, num_of_ccs_comp, pct_of_ccs_comp,
+                           num_of_ccs_unknown, pct_of_ccs_unknown, date]) + '\n')
+
+
 
 
 def write_tsv(list_of_species_name, list_of_total_sequence_num, list_of_species_sequence_count, output_path,
@@ -299,3 +395,49 @@ def aspect_pie_str_helper(total_seq_num, aspect_pie, with_exp=True):
             output_str = ['\t'.join(('\t'.join(t[0]), '\t'.join(t[1]))) for t in aspect_output]
     return output_str
 
+
+
+def read_gaf_og(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=True, protein_to_gene=None, id_list=None):
+    gaf_dict = {}
+    for aspect in sorted(aspect_list.keys()):
+        aspect_dict = {
+            "exp": set(),
+            "pred": set()
+        }
+        gaf_dict.setdefault(aspect, aspect_dict)
+    with open(gaf_path, 'r') as fp:
+        for line_num, info in delim_parser(fp, indices=[id_idx, 2, 4, 6, 8, 9, 10, 11, 12]):
+            if info is None:
+                continue
+            key_id, db_obj_symbol, go_id, ev_code, aspect, db_obj_name, db_obj_syn, db_obj_type, taxon_ids = info
+            db_obj_syn = set([syn for syn in db_obj_syn.split('|') if syn != ''])
+            db_potential_names = set(db_obj_syn | {key_id, db_obj_symbol, db_obj_name})
+            if db_obj_id_only is True:
+                db_potential_names = {key_id}
+            if protein_to_gene is None:
+                potential_gene_ids = [g for g in sorted(db_potential_names) if g != '']
+            else:
+                potential_gene_ids = []
+                for db_name in sorted(db_potential_names):
+                    try:
+                        potential_gene_ids += [g for g in protein_to_gene[db_name]]
+                    except KeyError:
+                        continue
+            if taxon_list is not None:
+                taxon_ids = set([re.sub("^taxon:", "", taxon) for taxon in taxon_ids.split('|')])
+                if len(taxon_ids & set(taxon_list)) == 0:
+                    continue
+            if len(potential_gene_ids) > 0:
+                if id_list is not None:
+                    gene_id = sorted(set(id_list) & set(potential_gene_ids))
+                    if len(gene_id) > 0:
+                        gene_id = sorted(set(id_list) & set(potential_gene_ids))[0]
+                    else:
+                        continue
+                else:
+                    gene_id = potential_gene_ids[0]
+                if aspect in gaf_dict and ev_code in experimental_evidence_codes:
+                    gaf_dict[aspect]['exp'].add(gene_id)
+                elif aspect in gaf_dict:
+                    gaf_dict[aspect]['pred'].add(gene_id)
+    return gaf_dict

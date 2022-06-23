@@ -2,9 +2,9 @@ import os
 
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib_venn import venn3, venn2, venn3_unweighted, venn2_unweighted
+from matplotlib_venn import venn3_unweighted, venn2_unweighted
 
-from definitions import annot_type_all, colors_all, aspect_list, aspect_order, annot_type_no_exp, colors_no_exp
+from util.definitions import annot_type_all, colors_all, aspect_order, annot_type_no_exp, colors_no_exp
 
 
 def add_pie_to_plt_axes_helper(percentage, total, autotexts_idx, text_size, text_color, pie_count):
@@ -51,9 +51,9 @@ def add_venn_to_plt_axes(axs, idx, venn_sets, venn_labels, three_part=True, font
                          xlabel=None):
     if type(idx) is int:
         if three_part is True:
-            v = venn3_unweighted(venn_sets, set_labels=venn_labels, ax=axs[idx])
+            v = venn3_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx])
         else:
-            v = venn2_unweighted(venn_sets, set_labels=venn_labels, ax=axs[idx])
+            v = venn2_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx])
         if title is not None:
             axs[idx].set_title(title)
         if ylabel is not None:
@@ -68,9 +68,9 @@ def add_venn_to_plt_axes(axs, idx, venn_sets, venn_labels, three_part=True, font
                     v.subset_labels[x].set_fontsize(font_size)
     elif type(idx) is tuple:
         if three_part is True:
-            v = venn3_unweighted(venn_sets, set_labels=venn_labels, ax=axs[idx[0]][idx[1]])
+            v = venn3_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx[0]][idx[1]])
         else:
-            v = venn2_unweighted(venn_sets, set_labels=venn_labels, ax=axs[idx[0]][idx[1]])
+            v = venn2_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx[0]][idx[1]])
         if title is not None:
             axs[idx[0]][idx[1]].set_title(title)
         if ylabel is not None:
@@ -89,17 +89,12 @@ def draw_pie_from_input_helper(axs, annot_type_all):
     axs[0][0].legend(labels=annot_type_all, prop={'size': 20}, bbox_to_anchor=(-0.2, -0.5), loc="lower left")
 
 
-def draw_pie_from_input(total_gene_num, gaf_dict, with_exp=True, plot_path=None, title="", plot_venn=True,
-                        extra_txt=None):
-    exp_aspect_dict = {}
-    all_exp_genes = set()
-    all_pred_genes = set()
-
+def draw_pie_from_species(species_class, plot_path=None, title="", plot_venn=True, extra_txt=None):
+    if len(getattr(species_class, 'list_of_exp')) == 0:
+        with_exp = False
+    else:
+        with_exp = True
     if title != "" and plot_path is not None and os.path.isdir(os.path.dirname(plot_path)):
-        # if with_exp is True and plot_venn is True:
-        #     fig, axs = plt.subplots(3, 3, figsize=(20, 12))
-        # else:
-        #     fig, axs = plt.subplots(2, 3, figsize=(20, 12))
         fig = plt.figure(figsize=(20, 12))
 
         gs = GridSpec(2, 6, figure=fig)
@@ -111,144 +106,133 @@ def draw_pie_from_input(total_gene_num, gaf_dict, with_exp=True, plot_path=None,
         axs = [[ax1, ax2, ax3], [ax4, ax5]]
     else:
         fig, axs = None, None
-
-    aspect_pie = {}
-    for idx, aspect in enumerate(['F', 'P', 'C']):
-        try:
-            aspect_name = aspect_list[aspect]
-        except KeyError:
-            aspect_name = aspect
-        aspect_dict = gaf_dict[aspect]
-
-        aspect_pred_genes = set(aspect_dict['pred'])
-        all_pred_genes.update(set(aspect_pred_genes))
-
-        if with_exp is True:
-            aspect_exp_genes = set(aspect_dict['exp'])
-            aspect_pred_genes = aspect_pred_genes - aspect_exp_genes
-            all_exp_genes.update(set(aspect_exp_genes))
-            annot_count = [len(aspect_exp_genes), len(aspect_pred_genes),
-                           total_gene_num - len(aspect_exp_genes) - len(aspect_pred_genes)]
-            exp_aspect_dict.setdefault(aspect, set(aspect_exp_genes))
+    for idx, aspect_name in enumerate(aspect_order):
+        if aspect_name == 'Molecular function':
+            annot_count = [len(getattr(species_class, 'list_of_mf_exp')),
+                           len(getattr(species_class, 'list_of_mf_comp')),
+                           len(getattr(species_class, 'list_of_mf_unknown'))]
+        elif aspect_name == 'Biological process':
+            annot_count = [len(getattr(species_class, 'list_of_bp_exp')),
+                           len(getattr(species_class, 'list_of_bp_comp')),
+                           len(getattr(species_class, 'list_of_bp_unknown'))]
+        elif aspect_name == 'Cellular component':
+            annot_count = [len(getattr(species_class, 'list_of_cc_exp')),
+                           len(getattr(species_class, 'list_of_cc_comp')),
+                           len(getattr(species_class, 'list_of_cc_unknown'))]
         else:
-            annot_count = [len(aspect_pred_genes), total_gene_num - len(aspect_pred_genes)]
-        aspect_pie.setdefault(aspect_name, annot_count)
+            print('Aspect Error', aspect_name)
+            raise SystemError
         if title != "" and plot_path is not None and os.path.isdir(os.path.dirname(plot_path)):
             if with_exp is True:
                 add_pie_to_plt_axes(axs, (0, idx), annot_count, pie_title=aspect_name,
                                     pie_labels=[''] * len(annot_count), text_size=15)
             else:
-                add_pie_to_plt_axes(axs, (0, idx), annot_count, pie_title=aspect_name, pie_labels=annot_type_no_exp,
+                add_pie_to_plt_axes(axs, (0, idx), annot_count[1:], pie_title=aspect_name, pie_labels=annot_type_no_exp,
                                     pie_color=colors_no_exp, text_size=15)
-
     if title != "" and plot_path is not None and os.path.isdir(os.path.dirname(plot_path)):
         axs[0][0].set_ylabel("A", rotation=0, fontsize=30, labelpad=60)
     if with_exp is True:
-        all_pred_genes = set(all_pred_genes) - set(all_exp_genes)
-        # total_gene_num = max(len(all_pred_genes) + len(all_exp_genes), total_gene_num)
-        species_gene_count = [len(all_exp_genes), len(all_pred_genes),
-                              total_gene_num - len(all_exp_genes) - len(all_pred_genes)]
+        species_gene_count = [len(getattr(species_class, 'list_of_exp')), len(getattr(species_class, 'list_of_comp')),
+                              len(getattr(species_class, 'list_of_unknown'))]
     else:
-        species_gene_count = [len(all_pred_genes), total_gene_num - len(all_pred_genes)]
+        species_gene_count = \
+            [len(getattr(species_class, 'list_of_comp')), len(getattr(species_class, 'list_of_unknown'))]
+
     if title != "" and plot_path is not None and os.path.isdir(os.path.dirname(plot_path)):
         if with_exp is True:
             add_pie_to_plt_axes(axs, (1, 0), species_gene_count, pie_title="$\it{" + title + "}$", percentage=True,
-                                total=total_gene_num, pie_labels=[''] * len(species_gene_count), text_color='white',
-                                text_size=15)
+                                total=len(getattr(species_class, 'list_of_seqs')),
+                                pie_labels=[''] * len(species_gene_count), text_color='white', text_size=15)
         else:
             add_pie_to_plt_axes(axs, (1, 0), species_gene_count, pie_title="$\it{" + title + "}$", percentage=True,
-                                total=total_gene_num, text_color='white', pie_labels=annot_type_no_exp,
-                                pie_color=colors_no_exp, text_size=15)
+                                total=len(getattr(species_class, 'list_of_seqs')), text_color='white',
+                                pie_labels=annot_type_no_exp, pie_color=colors_no_exp, text_size=15)
         axs[1][0].set_ylabel("B", rotation=0, fontsize=30, labelpad=60)
-
     if plot_venn is True and with_exp is True:
         exp_aspect_sets = []
         exp_aspect_labels = []
-        for aspect in exp_aspect_dict:
-            try:
-                aspect_name = aspect_list[aspect]
-            except KeyError:
-                continue
-            exp_aspect_sets.append(exp_aspect_dict[aspect])
+        for aspect_name in aspect_order:
+            if aspect_name == 'Molecular function':
+                exp_aspect_sets.append(getattr(species_class, 'list_of_mf_exp'))
+            elif aspect_name == 'Biological process':
+                exp_aspect_sets.append(getattr(species_class, 'list_of_bp_exp'))
+            elif aspect_name == 'Cellular component':
+                exp_aspect_sets.append(getattr(species_class, 'list_of_cc_exp'))
+            else:
+                print('Aspect Error', aspect_name)
+                raise SystemError
             exp_aspect_labels.append(aspect_name)
-        exp_aspect_sets = [exp_aspect_sets[exp_aspect_labels.index(aspect_name)]
-                           for idx, aspect_name in enumerate(aspect_order)]
-        exp_aspect_labels = aspect_order
         if title != "" and plot_path is not None and os.path.isdir(os.path.dirname(plot_path)):
             add_venn_to_plt_axes(axs, (1, 1), exp_aspect_sets, exp_aspect_labels, ylabel='C', font_size=15)
-            # axs[2][1].set_ylabel("C", rotation=0, size='large', fontsize=30, labelpad=60)
             draw_pie_from_input_helper(axs, annot_type_all)
             if extra_txt is not None:
                 axs[0][2].text(0, -2, extra_txt, size=20)
-            # fig.delaxes(axs[1][0])
-            # fig.delaxes(axs[2][0])
-            # fig.delaxes(axs[1][2])
-            # fig.delaxes(axs[2][2])
             fig.subplots_adjust(bottom=0.1)
             fig.tight_layout()
             plt.savefig(plot_path)
             plt.close()
-        return total_gene_num, aspect_pie, species_gene_count, exp_aspect_sets, exp_aspect_labels
     else:
-        # axs[0][0].legend(labels=annot_type_no_exp, prop={'size': 10}, bbox_to_anchor=(-0.4, -0.3), loc="lower left")
         draw_pie_from_input_helper(axs, annot_type_all)
         if extra_txt is not None:
             axs[0][2].text(0, -2, extra_txt, size=20)
         fig.delaxes(axs[1][1])
-        # fig.delaxes(axs[1][0])
-        # fig.delaxes(axs[1][2])
         fig.subplots_adjust(bottom=0.1)
         fig.tight_layout()
         plt.savefig(plot_path)
         plt.close()
-        return total_gene_num, aspect_pie, species_gene_count, None, None
 
 
-def go_domain_by_species(list_of_aspect_pie, list_of_species_name, plot_path, num_of_rows=3, extra_txt=None):
-    if len(list_of_species_name) != len(list_of_aspect_pie):
-        raise SystemError
-
+def go_domain_by_species(list_of_species, plot_path, num_of_rows=3, extra_txt=None):
     annot_labels = annot_type_all
-    num_of_species = len(list_of_species_name)
+    num_of_species = len(list_of_species)
     plt.figure(1)
     fig, axs = plt.subplots(nrows=num_of_rows, ncols=num_of_species, figsize=(num_of_species * 5, 15))
-    for idx, aspect_pie in enumerate(list_of_aspect_pie):
-        species_name = list_of_species_name[idx]
-        for r, aspect in enumerate(aspect_order):
-            aspect_count = aspect_pie[aspect]
+    for idx, species_class in enumerate(list_of_species):
+        species_name = getattr(species_class, 'species_abbr')
+        for r, aspect_name in enumerate(aspect_order):
+            if aspect_name == 'Molecular function':
+                annot_count = [len(getattr(species_class, 'list_of_mf_exp')),
+                               len(getattr(species_class, 'list_of_mf_comp')),
+                               len(getattr(species_class, 'list_of_mf_unknown'))]
+            elif aspect_name == 'Biological process':
+                annot_count = [len(getattr(species_class, 'list_of_bp_exp')),
+                               len(getattr(species_class, 'list_of_bp_comp')),
+                               len(getattr(species_class, 'list_of_bp_unknown'))]
+            elif aspect_name == 'Cellular component':
+                annot_count = [len(getattr(species_class, 'list_of_cc_exp')),
+                               len(getattr(species_class, 'list_of_cc_comp')),
+                               len(getattr(species_class, 'list_of_cc_unknown'))]
             axs[0][idx].set_title("$\it{" + species_name + "}$", fontsize=40)
-            if len(aspect_count) == 2:
+            if len(getattr(species_class, 'list_of_exp')) == 0:
                 pie_color = colors_no_exp
-                # annot_labels = annot_type_no_exp
+                annot_count = annot_count[1:]
             else:
                 pie_color = colors_all
-            add_pie_to_plt_axes(axs, (r, idx), aspect_count, pie_labels=[''] * len(aspect_count), pie_color=pie_color)
+            add_pie_to_plt_axes(axs, (r, idx), annot_count, pie_labels=[''] * len(annot_count), pie_color=pie_color)
     for ax, row in zip(axs[:, 0], aspect_order):
         ax.set_ylabel(row, rotation=0, fontsize=30, labelpad=150)
     axs[-1, 0].legend(labels=annot_labels, prop={'size': 30}, loc='lower left', bbox_to_anchor=(0, -1))
     if extra_txt is not None:
-        axs[2][len(list_of_species_name) - 1].text(-0.5, -2, extra_txt, size=20)
+        axs[2][len(list_of_species) - 1].text(-0.5, -2, extra_txt, size=20)
     fig.subplots_adjust(bottom=0.25)
     plt.savefig(plot_path, bbox_inches='tight')
 
 
-def completeness_by_species(list_of_species_gene_count, list_of_total_gene, list_of_species_name, plot_path,
-                            extra_txt=None):
-    if len(list_of_species_gene_count) != len(list_of_total_gene) or \
-            len(list_of_species_gene_count) != len(list_of_species_name) or \
-            len(list_of_total_gene) != len(list_of_species_name):
-        raise SystemError
+def completeness_by_species(list_of_species, plot_path, extra_txt=None):
     annot_labels = annot_type_all
-    num_of_species = len(list_of_species_name)
+    num_of_species = len(list_of_species)
     plt.figure(1)
     fig, axs = plt.subplots(nrows=1, ncols=num_of_species, figsize=(num_of_species * 5, 10))
     plt.subplots_adjust(wspace=0.5)
-    for idx, species_gene_count in enumerate(list_of_species_gene_count):
-        total_gene = list_of_total_gene[idx]
-        species_name = list_of_species_name[idx]
-        if len(species_gene_count) == 2:
+    for idx, species_class in enumerate(list_of_species):
+        total_gene = len(getattr(species_class, 'list_of_seqs'))
+        species_name = getattr(species_class, 'species_abbr')
+        species_gene_count = [len(getattr(species_class, 'list_of_exp')), len(getattr(species_class, 'list_of_comp')),
+                              len(getattr(species_class, 'list_of_unknown'))]
+        if len(getattr(species_class, 'list_of_exp')) == 0:
             pie_color = colors_no_exp
             annot_labels = annot_type_no_exp
+            species_gene_count = species_gene_count[1:]
         else:
             pie_color = colors_all
         add_pie_to_plt_axes(axs, idx, species_gene_count, pie_labels=[''] * len(species_gene_count), text_size=15,
@@ -257,29 +241,33 @@ def completeness_by_species(list_of_species_gene_count, list_of_total_gene, list
 
     axs[0].legend(labels=annot_labels, prop={'size': 20}, loc='lower left', bbox_to_anchor=(0, -1))
     if extra_txt is not None:
-        axs[len(list_of_species_name) - 1].text(-0.5, -1.7, extra_txt, size=20)
+        axs[len(list_of_species) - 1].text(-0.5, -1.7, extra_txt, size=20)
     fig.subplots_adjust(bottom=0.25)
     plt.savefig(plot_path, bbox_inches='tight')
 
 
-def experimental_chart_by_species(list_of_exp_aspect_sets, list_of_exp_aspect_labels, list_of_species_name, plot_path,
-                                  extra_txt=None):
-    if len(list_of_exp_aspect_sets) != len(list_of_exp_aspect_labels) or \
-            len(list_of_exp_aspect_sets) != len(list_of_species_name) or \
-            len(list_of_exp_aspect_labels) != len(list_of_species_name):
-        raise SystemError
-    num_of_species = len(list_of_species_name)
+def experimental_chart_by_species(list_of_species, plot_path, extra_txt=None):
+    num_of_species = len(list_of_species)
     plt.figure(1)
     fig, axs = plt.subplots(nrows=1, ncols=num_of_species, figsize=(num_of_species * 8, 20))
     plt.subplots_adjust(wspace=0.5)
-    for idx, exp_aspect_sets in enumerate(list_of_exp_aspect_sets):
-        exp_aspect_labels = list_of_exp_aspect_labels[idx]
-        species_name = list_of_species_name[idx]
+    for idx, species_class in enumerate(list_of_species):
+        species_name = getattr(species_class, 'species_abbr')
+        exp_aspect_sets = []
+        exp_aspect_labels = []
+        for aspect_name in aspect_order:
+            if aspect_name == 'Molecular function':
+                exp_aspect_sets.append(getattr(species_class, 'list_of_mf_exp'))
+            elif aspect_name == 'Biological process':
+                exp_aspect_sets.append(getattr(species_class, 'list_of_bp_exp'))
+            elif aspect_name == 'Cellular component':
+                exp_aspect_sets.append(getattr(species_class, 'list_of_cc_exp'))
+            else:
+                print('Aspect Error', aspect_name)
+                raise SystemError
+            exp_aspect_labels.append(aspect_name)
         add_venn_to_plt_axes(axs, idx, exp_aspect_sets, exp_aspect_labels, font_size=20)
         axs[idx].set_title("$\it{" + species_name + "}$", fontsize=30, pad=50)
-    # axs[0].legend(labels=aspect_order, prop={'size': 20}, loc='lower left', bbox_to_anchor=(0, -1))
-    # fig.subplots_adjust(bottom=0.25)
-    # plt.show()
     if extra_txt is not None:
-        axs[len(list_of_species_name) - 1].text(0, -1.1, extra_txt, size=20)
+        axs[len(list_of_species) - 1].text(0, -1.1, extra_txt, size=20)
     plt.savefig(plot_path, bbox_inches='tight')

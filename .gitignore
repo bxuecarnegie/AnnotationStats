@@ -2,3 +2,4 @@
 output/
 config.py
 test*
+*.pyc

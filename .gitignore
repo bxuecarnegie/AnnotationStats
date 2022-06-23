@@ -3,3 +3,4 @@ output/
 config.py
 test*
 *.pyc
+__pycache__/

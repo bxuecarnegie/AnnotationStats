@@ -79,7 +79,15 @@ def read_tair2uniprot(file_path, agi_list):
     return ids_to_agi
 
 
-def read_gff(gff_path, attribute_split=';', feature_type=None, attribute_type=None):
+# gff bio_type work around
+bio_type_dict = {
+    "biotype": "protein_coding",
+    "locus_type": "protein_coding",
+    "so_term_name": "protein_coding_gene"
+}
+
+
+def read_gff(gff_path, attribute_split=';', feature_type=None, attribute_type=None, bio_type=None):
     if feature_type is None:
         feature_type = ['gene']
     if attribute_type is None:
@@ -94,7 +102,14 @@ def read_gff(gff_path, attribute_split=';', feature_type=None, attribute_type=No
             if feature in feature_type:
                 info = [re.sub(attr_regex, '', attr) for attr in attribute.split(attribute_split)
                         if re.search(attr_regex, attr)]
-                res.append(info)
+                if bio_type is not None:
+                    if type(bio_type) is str:
+                        bio_type = [bio_type]
+                    bio_type_regex = re.compile('|'.join([b for b in bio_type]))
+                    if re.search(bio_type_regex, attribute):
+                        res.append(info)
+                else:
+                    res.append(info)
     return res
 
 
@@ -168,14 +183,15 @@ def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_
                 gene_id = None
             if ev_code in experimental_evidence_codes and gene_id is not None:
                 list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp, \
-                    list_of_bp_seqs, list_of_bp_exp = lists_of_seq_helper(
-                        gene_id, aspect, list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp,
-                        list_of_bp_seqs, list_of_bp_exp)
-            elif gene_id is not None:
+                list_of_bp_seqs, list_of_bp_exp = lists_of_seq_helper(
+                    gene_id, aspect, list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp,
+                    list_of_bp_seqs, list_of_bp_exp)
+            elif gene_id is not None and ev_code != "ND":
+                # "ND" removed
                 list_of_comp, list_of_mf_seqs, list_of_mf_comp, list_of_cc_seqs, list_of_cc_comp, \
-                    list_of_bp_seqs, list_of_bp_comp = lists_of_seq_helper(
-                        gene_id, aspect, list_of_comp, list_of_mf_seqs, list_of_mf_comp,
-                        list_of_cc_seqs, list_of_cc_comp, list_of_bp_seqs, list_of_bp_comp)
+                list_of_bp_seqs, list_of_bp_comp = lists_of_seq_helper(
+                    gene_id, aspect, list_of_comp, list_of_mf_seqs, list_of_mf_comp,
+                    list_of_cc_seqs, list_of_cc_comp, list_of_bp_seqs, list_of_bp_comp)
     return \
         sorted(list_of_exp), sorted(list_of_comp - list_of_exp), \
         sorted(list_of_mf_seqs), sorted(list_of_mf_exp), sorted(list_of_mf_comp - list_of_mf_exp), \
@@ -224,11 +240,16 @@ def read_phytozome_annotation_info(annotation_info_path, go_dag):
 def get_num_and_pct(list_of_seqs, list_of_exp, list_of_comp, list_of_unknown):
     num_of_genes = len(list_of_seqs)
     num_of_genes_exp = len(list_of_exp)
-    pct_of_genes_exp = '{percent:.2%}'.format(percent=float(num_of_genes_exp) / float(num_of_genes))
     num_of_genes_comp = len(list_of_comp)
-    pct_of_genes_comp = '{percent:.2%}'.format(percent=float(num_of_genes_comp) / float(num_of_genes))
     num_of_genes_unknown = len(list_of_unknown)
-    pct_of_genes_unknown = '{percent:.2%}'.format(percent=float(num_of_genes_unknown) / float(num_of_genes))
+    if num_of_genes == 0:
+        pct_of_genes_exp = str(0)
+        pct_of_genes_comp = str(0)
+        pct_of_genes_unknown = str(0)
+    else:
+        pct_of_genes_exp = '{percent:.2%}'.format(percent=float(num_of_genes_exp) / float(num_of_genes))
+        pct_of_genes_comp = '{percent:.2%}'.format(percent=float(num_of_genes_comp) / float(num_of_genes))
+        pct_of_genes_unknown = '{percent:.2%}'.format(percent=float(num_of_genes_unknown) / float(num_of_genes))
     return \
         str(num_of_genes), str(num_of_genes_exp), pct_of_genes_exp, str(num_of_genes_comp), pct_of_genes_comp, \
         str(num_of_genes_unknown), pct_of_genes_unknown
@@ -276,7 +297,7 @@ def output_list_of_species_class(list_of_species_class, output_path):
             list_of_unknown = getattr(species_class, 'list_of_unknown')
 
             num_of_genes, num_of_genes_exp, pct_of_genes_exp, num_of_genes_comp, pct_of_genes_comp, \
-                num_of_genes_unknown, pct_of_genes_unknown = \
+            num_of_genes_unknown, pct_of_genes_unknown = \
                 get_num_and_pct(list_of_seqs, list_of_exp, list_of_comp, list_of_unknown)
 
             # Domain
@@ -286,7 +307,7 @@ def output_list_of_species_class(list_of_species_class, output_path):
             list_of_mf_unknown = getattr(species_class, 'list_of_mf_unknown')
 
             _, num_of_mfs_exp, pct_of_mfs_exp, num_of_mfs_comp, pct_of_mfs_comp, \
-                num_of_mfs_unknown, pct_of_mfs_unknown = \
+            num_of_mfs_unknown, pct_of_mfs_unknown = \
                 get_num_and_pct(list_of_seqs, list_of_mf_exp, list_of_mf_comp, list_of_mf_unknown)
 
             # list_of_cc_seqs = getattr(species_class, 'list_of_cc_seqs')
@@ -295,7 +316,7 @@ def output_list_of_species_class(list_of_species_class, output_path):
             list_of_cc_unknown = getattr(species_class, 'list_of_cc_unknown')
 
             _, num_of_ccs_exp, pct_of_ccs_exp, num_of_ccs_comp, pct_of_ccs_comp, \
-                num_of_ccs_unknown, pct_of_ccs_unknown = \
+            num_of_ccs_unknown, pct_of_ccs_unknown = \
                 get_num_and_pct(list_of_seqs, list_of_cc_exp, list_of_cc_comp, list_of_cc_unknown)
 
             # list_of_bp_seqs = getattr(species_class, 'list_of_bp_seqs')
@@ -304,7 +325,7 @@ def output_list_of_species_class(list_of_species_class, output_path):
             list_of_bp_unknown = getattr(species_class, 'list_of_bp_unknown')
 
             _, num_of_bps_exp, pct_of_bps_exp, num_of_bps_comp, pct_of_bps_comp, \
-                num_of_bps_unknown, pct_of_bps_unknown = \
+            num_of_bps_unknown, pct_of_bps_unknown = \
                 get_num_and_pct(list_of_seqs, list_of_bp_exp, list_of_bp_comp, list_of_bp_unknown)
 
             op.write(
@@ -315,8 +336,6 @@ def output_list_of_species_class(list_of_species_class, output_path):
                            num_of_bps_comp, pct_of_bps_comp, num_of_bps_unknown, pct_of_bps_unknown,
                            num_of_ccs_exp, pct_of_ccs_exp, num_of_ccs_comp, pct_of_ccs_comp,
                            num_of_ccs_unknown, pct_of_ccs_unknown, date]) + '\n')
-
-
 
 
 def write_tsv(list_of_species_name, list_of_total_sequence_num, list_of_species_sequence_count, output_path,
@@ -394,7 +413,6 @@ def aspect_pie_str_helper(total_seq_num, aspect_pie, with_exp=True):
         except IndexError:
             output_str = ['\t'.join(('\t'.join(t[0]), '\t'.join(t[1]))) for t in aspect_output]
     return output_str
-
 
 
 def read_gaf_og(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=True, protein_to_gene=None, id_list=None):

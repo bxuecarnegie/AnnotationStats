@@ -13,7 +13,7 @@ class Species(object):
     def __init__(self, species_id, species_name, species_abbr, species_taxon, species_type,
                  annot_type, annot_file, annot_source, annot_version, annot_link,
                  gene_type, gene_file, gene_source, gene_version, gene_link,
-                 mapping_file=None, mapping_version=None, mapping_link=None):
+                 mapping_file=None, mapping_version=None, mapping_link=None, gff_bio_type=None):
         self.date = ''
         self.go_dag = None
 
@@ -55,6 +55,7 @@ class Species(object):
         self.mapping_version = mapping_version
         self.mapping_link = mapping_link
         self.protein_to_gene_map = None
+        self.gff_bio_type = gff_bio_type
 
         # Sequences
         self.list_of_seqs = []
@@ -78,7 +79,8 @@ class Species(object):
 
     def read_gene_file(self):
         if self.gene_type.lower() == 'gff':
-            seqs_from_gff = read_gff(self.gene_file, feature_type=self.feature_type, attribute_type=self.attribute_type)
+            seqs_from_gff = read_gff(self.gene_file, feature_type=self.feature_type, attribute_type=self.attribute_type,
+                                     bio_type=self.gff_bio_type)
             self.list_of_seqs = sorted(set(flatten_list(seqs_from_gff)))
         elif self.gene_type.lower() == 'uniprot-proteome.tab':
             seqs_from_tab = set()

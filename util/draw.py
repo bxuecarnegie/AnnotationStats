@@ -57,9 +57,9 @@ def add_venn_to_plt_axes(axs, idx, venn_sets, venn_labels, three_part=True, font
         if title is not None:
             axs[idx].set_title(title)
         if ylabel is not None:
-            axs[idx].text(-1, 0, ylabel, size=30, verticalalignment='center')
+            axs[idx].text(-1, 0, ylabel, size=20, verticalalignment='center')
         if xlabel is not None:
-            axs[idx].text(0, -1.4, xlabel, size=30)
+            axs[idx].text(0, -1.4, xlabel, size=20)
         if font_size is not None:
             for text in v.set_labels:
                 text.set_fontsize(font_size)
@@ -74,9 +74,9 @@ def add_venn_to_plt_axes(axs, idx, venn_sets, venn_labels, three_part=True, font
         if title is not None:
             axs[idx[0]][idx[1]].set_title(title)
         if ylabel is not None:
-            axs[idx[0]][idx[1]].text(-1, 0, ylabel, size=30, verticalalignment='center')
+            axs[idx[0]][idx[1]].text(-1, 0, ylabel, size=20, verticalalignment='center')
         if xlabel is not None:
-            axs[idx[0]][idx[1]].text(0, -1.4, xlabel, size=30)
+            axs[idx[0]][idx[1]].text(0, -1.4, xlabel, size=20)
         if font_size is not None:
             for text in v.set_labels:
                 text.set_fontsize(font_size)
@@ -85,8 +85,13 @@ def add_venn_to_plt_axes(axs, idx, venn_sets, venn_labels, three_part=True, font
                     v.subset_labels[x].set_fontsize(font_size)
 
 
-def draw_pie_from_input_helper(axs, annot_type_all):
-    axs[0][0].legend(labels=annot_type_all, prop={'size': 20}, bbox_to_anchor=(-0.2, -0.5), loc="lower left")
+def draw_pie_from_input_helper(axs, annot_type):
+    if len(annot_type) == 3:
+        axs[0][0].legend(labels=annot_type, prop={'size': 20}, bbox_to_anchor=(-0.25, -0.15), loc="lower left",
+                         ncol=len(annot_type))
+    else:
+        axs[0][0].legend(labels=annot_type, prop={'size': 20}, bbox_to_anchor=(-0.2, -0.15), loc="lower left",
+                         ncol=len(annot_type))
 
 
 def draw_pie_from_species(species_class, plot_path=None, title="", plot_venn=True, extra_txt=None):
@@ -130,7 +135,7 @@ def draw_pie_from_species(species_class, plot_path=None, title="", plot_venn=Tru
                 add_pie_to_plt_axes(axs, (0, idx), annot_count[1:], pie_title=aspect_name, pie_labels=annot_type_no_exp,
                                     pie_color=colors_no_exp, text_size=15)
     if title != "" and plot_path is not None and os.path.isdir(os.path.dirname(plot_path)):
-        axs[0][0].set_ylabel("A", rotation=0, fontsize=30, labelpad=60)
+        axs[0][0].set_ylabel("A", rotation=0, fontsize=20, labelpad=60)
     if with_exp is True:
         species_gene_count = [len(getattr(species_class, 'list_of_exp')), len(getattr(species_class, 'list_of_comp')),
                               len(getattr(species_class, 'list_of_unknown'))]
@@ -140,14 +145,16 @@ def draw_pie_from_species(species_class, plot_path=None, title="", plot_venn=Tru
 
     if title != "" and plot_path is not None and os.path.isdir(os.path.dirname(plot_path)):
         if with_exp is True:
-            add_pie_to_plt_axes(axs, (1, 0), species_gene_count, pie_title="$\it{" + title + "}$", percentage=True,
+            add_pie_to_plt_axes(axs, (1, 0), species_gene_count, # pie_title="$\it{" + title + "}$",
+                                percentage=True,
                                 total=len(getattr(species_class, 'list_of_seqs')),
                                 pie_labels=[''] * len(species_gene_count), text_color='white', text_size=15)
         else:
-            add_pie_to_plt_axes(axs, (1, 0), species_gene_count, pie_title="$\it{" + title + "}$", percentage=True,
+            add_pie_to_plt_axes(axs, (1, 0), species_gene_count, # pie_title="$\it{" + title + "}$",
+                                percentage=True,
                                 total=len(getattr(species_class, 'list_of_seqs')), text_color='white',
                                 pie_labels=annot_type_no_exp, pie_color=colors_no_exp, text_size=15)
-        axs[1][0].set_ylabel("B", rotation=0, fontsize=30, labelpad=60)
+        axs[1][0].set_ylabel("B", rotation=0, fontsize=20, labelpad=60)
     if plot_venn is True and with_exp is True:
         exp_aspect_sets = []
         exp_aspect_labels = []
@@ -166,15 +173,15 @@ def draw_pie_from_species(species_class, plot_path=None, title="", plot_venn=Tru
             add_venn_to_plt_axes(axs, (1, 1), exp_aspect_sets, exp_aspect_labels, ylabel='C', font_size=15)
             draw_pie_from_input_helper(axs, annot_type_all)
             if extra_txt is not None:
-                axs[0][2].text(0, -2, extra_txt, size=20)
+                axs[0][2].text(1, -1.5, extra_txt, size=20, ha='right')
             fig.subplots_adjust(bottom=0.1)
             fig.tight_layout()
             plt.savefig(plot_path)
             plt.close()
     else:
-        draw_pie_from_input_helper(axs, annot_type_all)
+        draw_pie_from_input_helper(axs, annot_type_no_exp)
         if extra_txt is not None:
-            axs[0][2].text(0, -2, extra_txt, size=20)
+            axs[0][2].text(1, -1.5, extra_txt, size=20, ha='right')
         fig.delaxes(axs[1][1])
         fig.subplots_adjust(bottom=0.1)
         fig.tight_layout()
@@ -203,17 +210,21 @@ def go_domain_by_species(list_of_species, plot_path, num_of_rows=3, extra_txt=No
                                len(getattr(species_class, 'list_of_cc_comp')),
                                len(getattr(species_class, 'list_of_cc_unknown'))]
             axs[0][idx].set_title("$\it{" + species_name + "}$", fontsize=40)
-            if len(getattr(species_class, 'list_of_exp')) == 0:
-                pie_color = colors_no_exp
-                annot_count = annot_count[1:]
-            else:
-                pie_color = colors_all
+            # if len(getattr(species_class, 'list_of_exp')) == 0:
+            #     pie_color = colors_no_exp
+            #     annot_labels = annot_type_no_exp
+            #     annot_count = annot_count[1:]
+            # else:
+            #     pie_color = colors_all
+            pie_color = colors_all
             add_pie_to_plt_axes(axs, (r, idx), annot_count, pie_labels=[''] * len(annot_count), pie_color=pie_color)
     for ax, row in zip(axs[:, 0], aspect_order):
-        ax.set_ylabel(row, rotation=0, fontsize=30, labelpad=150)
-    axs[-1, 0].legend(labels=annot_labels, prop={'size': 30}, loc='lower left', bbox_to_anchor=(0, -1))
+        ax.set_ylabel(row, rotation=0, fontsize=20, labelpad=150)
+    axs[-1, 0].legend(labels=annot_labels, prop={'size': 20}, loc='lower left', bbox_to_anchor=(-1.3, -0.2),
+                      ncol=len(annot_labels))
     if extra_txt is not None:
-        axs[2][len(list_of_species) - 1].text(-0.5, -2, extra_txt, size=20)
+        # axs[2][len(list_of_species) - 1].text(-0.5, -2, extra_txt, size=20, ha='right')
+        axs[2][len(list_of_species) - 1].text(1, -1.7, extra_txt, size=20, ha='right')
     fig.subplots_adjust(bottom=0.25)
     plt.savefig(plot_path, bbox_inches='tight')
 
@@ -229,19 +240,22 @@ def completeness_by_species(list_of_species, plot_path, extra_txt=None):
         species_name = getattr(species_class, 'species_abbr')
         species_gene_count = [len(getattr(species_class, 'list_of_exp')), len(getattr(species_class, 'list_of_comp')),
                               len(getattr(species_class, 'list_of_unknown'))]
-        if len(getattr(species_class, 'list_of_exp')) == 0:
-            pie_color = colors_no_exp
-            annot_labels = annot_type_no_exp
-            species_gene_count = species_gene_count[1:]
-        else:
-            pie_color = colors_all
+        # if len(getattr(species_class, 'list_of_exp')) == 0:
+        #     pie_color = colors_no_exp
+        #     annot_labels = annot_type_no_exp
+        #     species_gene_count = species_gene_count[1:]
+        # else:
+        #     pie_color = colors_all
+        pie_color = colors_all
         add_pie_to_plt_axes(axs, idx, species_gene_count, pie_labels=[''] * len(species_gene_count), text_size=15,
                             radius=1, percentage=True, total=total_gene, text_color='white', pie_color=pie_color)
-        axs[idx].set_title("$\it{" + species_name + "}$", fontsize=30, pad=50)
+        axs[idx].set_title("$\it{" + species_name + "}$", fontsize=40, pad=50)
 
-    axs[0].legend(labels=annot_labels, prop={'size': 20}, loc='lower left', bbox_to_anchor=(0, -1))
+    axs[0].legend(labels=annot_labels, prop={'size': 20}, loc='lower left', bbox_to_anchor=(0, -0.2),
+                  ncol=len(annot_labels))
     if extra_txt is not None:
-        axs[len(list_of_species) - 1].text(-0.5, -1.7, extra_txt, size=20)
+        # axs[len(list_of_species) - 1].text(-0.5, -1.7, extra_txt, size=20, ha='right')
+        axs[len(list_of_species) - 1].text(1, -1.7, extra_txt, size=20, ha='right')
     fig.subplots_adjust(bottom=0.25)
     plt.savefig(plot_path, bbox_inches='tight')
 
@@ -267,7 +281,7 @@ def experimental_chart_by_species(list_of_species, plot_path, extra_txt=None):
                 raise SystemError
             exp_aspect_labels.append(aspect_name)
         add_venn_to_plt_axes(axs, idx, exp_aspect_sets, exp_aspect_labels, font_size=20)
-        axs[idx].set_title("$\it{" + species_name + "}$", fontsize=30, pad=50)
+        axs[idx].set_title("$\it{" + species_name + "}$", fontsize=40, pad=50)
     if extra_txt is not None:
-        axs[len(list_of_species) - 1].text(0, -1.1, extra_txt, size=20)
+        axs[len(list_of_species) - 1].text(1, -1, extra_txt, size=20, ha='right')
     plt.savefig(plot_path, bbox_inches='tight')

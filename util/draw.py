@@ -219,14 +219,14 @@ def go_domain_by_species(list_of_species, plot_path, num_of_rows=3, extra_txt=No
             pie_color = colors_all
             add_pie_to_plt_axes(axs, (r, idx), annot_count, pie_labels=[''] * len(annot_count), pie_color=pie_color)
     for ax, row in zip(axs[:, 0], aspect_order):
-        ax.set_ylabel(row, rotation=0, fontsize=20, labelpad=150)
-    axs[-1, 0].legend(labels=annot_labels, prop={'size': 20}, loc='lower left', bbox_to_anchor=(-1.3, -0.2),
-                      ncol=len(annot_labels))
+        ax.set_ylabel(row, rotation=0, fontsize=35, labelpad=150)
+    lgd = axs[-1, 0].legend(labels=annot_labels, prop={'size': 35}, loc='lower left', bbox_to_anchor=(-1.5, -0.5),
+                            ncol=len(annot_labels))
     if extra_txt is not None:
         # axs[2][len(list_of_species) - 1].text(-0.5, -2, extra_txt, size=20, ha='right')
-        axs[2][len(list_of_species) - 1].text(1, -1.7, extra_txt, size=20, ha='right')
+        axs[2][len(list_of_species) - 1].text(1, -2, extra_txt, size=20, ha='right')
     fig.subplots_adjust(bottom=0.25)
-    plt.savefig(plot_path, bbox_inches='tight')
+    plt.savefig(plot_path,  bbox_extra_artists=(lgd,), bbox_inches='tight')
 
 
 def completeness_by_species(list_of_species, plot_path, extra_txt=None):

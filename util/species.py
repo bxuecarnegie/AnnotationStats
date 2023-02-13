@@ -77,6 +77,10 @@ class Species(object):
         self.list_of_bp_comp = []
         self.list_of_bp_unknown = []
 
+        # gaf
+        self.exp_gaf = {}
+        self.comp_gaf = {}
+
     def read_gene_file(self):
         if self.gene_type.lower() == 'gff':
             seqs_from_gff = read_gff(self.gene_file, feature_type=self.feature_type, attribute_type=self.attribute_type,
@@ -94,7 +98,8 @@ class Species(object):
                         except ValueError:
                             entry_idx = 0
                         try:
-                            gene_names_idx = info.index('Gene names')
+                            # gene_names_idx = info.index('Gene names')
+                            gene_names_idx = info.index('Gene Names')
                         except ValueError:
                             gene_names_idx = 9
             with open(self.gene_file, 'r') as fp:
@@ -140,14 +145,14 @@ class Species(object):
         if self.annot_type == 'gaf':
             self.list_of_exp, self.list_of_comp, self.list_of_mf_seqs, self.list_of_mf_exp, self.list_of_mf_comp, \
                 self.list_of_cc_seqs, self.list_of_cc_exp, self.list_of_cc_comp, \
-                self.list_of_bp_seqs, self.list_of_bp_exp, self.list_of_bp_comp =\
+                self.list_of_bp_seqs, self.list_of_bp_exp, self.list_of_bp_comp, self.exp_gaf, self.comp_gaf =\
                 read_gaf(self.annot_file, protein_to_gene=self.protein_to_gene_map, id_list=self.list_of_seqs)
 
         elif self.annot_type == 'annotation_info':
             if self.go_dag is None:
                 print("GO dag not generated, run 'generate_go_dag() first.'")
             self.list_of_comp, self.list_of_mf_seqs, self.list_of_mf_comp, self.list_of_cc_seqs, self.list_of_cc_comp, \
-                self.list_of_bp_seqs, self.list_of_bp_comp = \
+                self.list_of_bp_seqs, self.list_of_bp_comp, self.exp_gaf, self.comp_gaf = \
                 read_phytozome_annotation_info(self.annot_file, self.go_dag)
         else:
             print("Annotation File type unknown", self.annot_type)

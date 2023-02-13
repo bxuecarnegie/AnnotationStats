@@ -9,23 +9,35 @@ def flatten_list(input_list):
     return [item for sublist in input_list for item in sorted(sublist)]
 
 
-def delim_parser(fp, delim='\t', indices=None, ignore=None):
+def delim_parser(fp, delim='\t', indices=None, ignore=None, return_line=False):
     if indices is None:
         indices = [0, 1]
     if ignore is None:
         ignore = ['!', '#']
     for idx, line in enumerate(fp):
         if len(line.lstrip()) == 0:
-            yield idx, None
+            if return_line is True:
+                yield idx, None, line
+            else:
+                yield idx, None
         elif True in [line.lstrip().startswith(i) for i in ignore]:
-            yield idx, None
+            if return_line is True:
+                yield idx, None, line
+            else:
+                yield idx, None
         else:
             line = line.rstrip('\n')
             info = re.split(delim, line)
             try:
-                yield idx, [info[idx] for idx in indices]
+                if return_line is True:
+                    yield idx, [info[idx] for idx in indices], line
+                else:
+                    yield idx, [info[idx] for idx in indices]
             except IndexError:
-                yield idx, None
+                if return_line is True:
+                    yield idx, None, line
+                else:
+                    yield idx, None
 
 
 def dict_set_helper(input_dict, key, val):
@@ -129,6 +141,8 @@ def lists_of_seq_helper(gene_id, aspect, list_of_ev, list_of_mf, list_of_mf_of_e
 
 
 def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_to_gene=None, id_list=None):
+    exp_gaf = {}
+    comp_gaf = {}
     # ev_code in experimental_evidence_codes
     list_of_exp = set()
     list_of_comp = set()
@@ -149,7 +163,8 @@ def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_
     list_of_bp_comp = set()
 
     with open(gaf_path, 'r') as fp:
-        for line_num, info in tqdm(delim_parser(fp, indices=[id_idx, 2, 4, 6, 8, 9, 10, 11, 12])):
+        for line_num, info, line in \
+                tqdm(delim_parser(fp, indices=[id_idx, 2, 4, 6, 8, 9, 10, 11, 12], return_line=True)):
             if info is None:
                 continue
             key_id, db_obj_symbol, go_id, ev_code, aspect, db_obj_name, db_obj_syn, db_obj_type, taxon_ids = info
@@ -186,20 +201,34 @@ def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_
                 list_of_bp_seqs, list_of_bp_exp = lists_of_seq_helper(
                     gene_id, aspect, list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp,
                     list_of_bp_seqs, list_of_bp_exp)
+                dict_set_helper(exp_gaf, gene_id, line)
             elif gene_id is not None and ev_code != "ND":
                 # "ND" removed
                 list_of_comp, list_of_mf_seqs, list_of_mf_comp, list_of_cc_seqs, list_of_cc_comp, \
                 list_of_bp_seqs, list_of_bp_comp = lists_of_seq_helper(
                     gene_id, aspect, list_of_comp, list_of_mf_seqs, list_of_mf_comp,
                     list_of_cc_seqs, list_of_cc_comp, list_of_bp_seqs, list_of_bp_comp)
+                dict_set_helper(comp_gaf, gene_id, line)
+    exp_gaf_only = {}
+    comp_gaf_only = {}
+    for gene_id in sorted(exp_gaf.keys()):
+        dict_set_helper(exp_gaf_only, gene_id, exp_gaf[gene_id])
+        if gene_id in comp_gaf_only:
+            dict_set_helper(exp_gaf_only, gene_id, comp_gaf[gene_id])
+    for gene_id in sorted(comp_gaf.keys()):
+        if gene_id not in exp_gaf_only:
+            dict_set_helper(comp_gaf_only, gene_id, comp_gaf[gene_id])
     return \
         sorted(list_of_exp), sorted(list_of_comp - list_of_exp), \
         sorted(list_of_mf_seqs), sorted(list_of_mf_exp), sorted(list_of_mf_comp - list_of_mf_exp), \
         sorted(list_of_cc_seqs), sorted(list_of_cc_exp), sorted(list_of_cc_comp - list_of_cc_exp), \
-        sorted(list_of_bp_seqs), sorted(list_of_bp_exp), sorted(list_of_bp_comp - list_of_bp_exp),
+        sorted(list_of_bp_seqs), sorted(list_of_bp_exp), sorted(list_of_bp_comp - list_of_bp_exp), \
+        exp_gaf_only, comp_gaf_only
 
 
 def read_phytozome_annotation_info(annotation_info_path, go_dag):
+    comp_annotation_info = {}
+
     # ev_code in experimental_evidence_codes
     list_of_comp = set()
 
@@ -217,7 +246,7 @@ def read_phytozome_annotation_info(annotation_info_path, go_dag):
 
     unfound_go_terms = set()
     with open(annotation_info_path, 'r') as fp:
-        for line_num, info in tqdm(delim_parser(fp, indices=[1, 9])):
+        for line_num, info, line in tqdm(delim_parser(fp, indices=[1, 9], return_line=True)):
             if info is None:
                 continue
             locus_id, go_field = info
@@ -228,13 +257,14 @@ def read_phytozome_annotation_info(annotation_info_path, go_dag):
                     if res is not None:
                         lists_of_seq_helper(locus_id, res.namespace, list_of_comp, list_of_mf_seqs, list_of_mf_comp,
                                             list_of_cc_seqs, list_of_cc_comp, list_of_bp_seqs, list_of_bp_comp)
+                        dict_set_helper(comp_annotation_info, locus_id, line)
                     else:
                         unfound_go_terms.add(go_id)
     print("Unfound GO", unfound_go_terms)
     return \
         sorted(list_of_comp), sorted(list_of_mf_seqs), sorted(list_of_mf_comp), \
         sorted(list_of_cc_seqs), sorted(list_of_cc_comp), \
-        sorted(list_of_bp_seqs), sorted(list_of_bp_comp),
+        sorted(list_of_bp_seqs), sorted(list_of_bp_comp), {}, comp_annotation_info
 
 
 def get_num_and_pct(list_of_seqs, list_of_exp, list_of_comp, list_of_unknown):

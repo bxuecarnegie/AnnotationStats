@@ -41,15 +41,18 @@ def plot_type(species_tsv, species_type, species_class_list, output, max_col=8):
     for species_class in species_class_list:
         species_name = getattr(species_class, 'species_abbr')
         print(species_name)
-        species_plot = os.path.join(output, species_type, species_name + '.plots.png')
+        # species_plot = os.path.join(output, species_type, species_name + '.plots.png')
         add_stats_to_species(species_class, species_tsv)
         # draw_pie_from_species(species_class, species_plot, title=species_name, extra_txt=lab_copyright)
     for idx, species_class_chunks in enumerate(divide_chunks(species_class_list, max_col)):
         if len(species_class_chunks) == 0:
             continue
-        domain_plot_path = os.path.join(output, species_type, species_type + '.' + str(idx) + ".domain.plot.png")
-        completeness_plot_path = os.path.join(output, species_type, species_type + '.' + str(idx) + ".completeness.plot.png")
-        experimental_plot_path = os.path.join(output, species_type, species_type + '.' + str(idx) + ".experimental.plot.png")
+        domain_plot_path = \
+            os.path.join(output, species_type, species_type + '.' + str(idx) + ".domain.plot.png")
+        completeness_plot_path = \
+            os.path.join(output, species_type, species_type + '.' + str(idx) + ".completeness.plot.png")
+        experimental_plot_path = \
+            os.path.join(output, species_type, species_type + '.' + str(idx) + ".experimental.plot.png")
         go_domain_by_species(species_class_chunks, domain_plot_path, extra_txt=lab_copyright)
         completeness_by_species(species_class_chunks, completeness_plot_path, extra_txt=lab_copyright)
         experimental_chart_by_species(species_class_chunks, experimental_plot_path, extra_txt=lab_copyright)

@@ -26,7 +26,7 @@ def write_tsv(gene_list, list_of_mf_seqs, list_of_cc_seqs, list_of_bp_seqs, outp
             op.write('\t'.join([gene, mf, cc, bp]) + '\n')
 
 
-def run_on_species_class(species_class, annot_ext='gaf'):
+def run_on_species_class(species_class, annot_ext='tsv'):
     print('Processing Species:', getattr(species_class, 'species_name'))
     print('Reading Gene File...')
     species_class.read_gene_file()
@@ -49,12 +49,12 @@ def run_on_species_class(species_class, annot_ext='gaf'):
     with open(comp_gaf, 'w') as op:
         for gene_id in sorted(getattr(species_class, 'comp_gaf').keys()):
             op.write('\n'.join(sorted(getattr(species_class, 'comp_gaf')[gene_id])))
-    exp_tsv = os.path.join(output_folder, getattr(species_class, 'species_type'), species_name + '.exp.tsv')
-    write_tsv(getattr(species_class, 'list_of_exp'), getattr(species_class, 'list_of_mf_seqs'),
-              getattr(species_class, 'list_of_cc_seqs'), getattr(species_class, 'list_of_bp_seqs'), exp_tsv)
-    comp_tsv = os.path.join(output_folder, getattr(species_class, 'species_type'), species_name + '.comp.tsv')
-    write_tsv(getattr(species_class, 'list_of_comp'), getattr(species_class, 'list_of_mf_seqs'),
-              getattr(species_class, 'list_of_cc_seqs'), getattr(species_class, 'list_of_bp_seqs'), comp_tsv)
+    # exp_tsv = os.path.join(output_folder, getattr(species_class, 'species_type'), species_name + '.exp.tsv')
+    # write_tsv(getattr(species_class, 'list_of_exp'), getattr(species_class, 'list_of_mf_seqs'),
+    #           getattr(species_class, 'list_of_cc_seqs'), getattr(species_class, 'list_of_bp_seqs'), exp_tsv)
+    # comp_tsv = os.path.join(output_folder, getattr(species_class, 'species_type'), species_name + '.comp.tsv')
+    # write_tsv(getattr(species_class, 'list_of_comp'), getattr(species_class, 'list_of_mf_seqs'),
+    #           getattr(species_class, 'list_of_cc_seqs'), getattr(species_class, 'list_of_bp_seqs'), comp_tsv)
     unknown_tsv = os.path.join(output_folder, getattr(species_class, 'species_type'), species_name + '.unknown.tsv')
     with open(unknown_tsv, 'w') as op:
         op.write('Gene\n')
@@ -68,7 +68,7 @@ def run_list_of_species_classes(species_class_list, species_type):
     if species_type == 'doe':
         for species_class in species_class_list:
             # print(len(species_class.list_of_exp))
-            run_on_species_class(species_class, annot_ext='annotation_info')
+            run_on_species_class(species_class)
             # print(len(species_class.list_of_exp))
     else:
         Parallel(n_jobs=5)(delayed(run_on_species_class)(species_class) for species_class in species_class_list)
@@ -84,8 +84,8 @@ def run_list_of_species_classes(species_class_list, species_type):
 
 
 if __name__ == '__main__':
-    # run_list_of_species_classes([model[1]], 'model')
-    # run_list_of_species_classes(model, 'model')
+    # run_list_of_species_classes([model[0]], 'model')
+    run_list_of_species_classes(model, 'model')
     run_list_of_species_classes(doe, 'doe')
-    # run_list_of_species_classes(uniprot, 'uniprot')
+    run_list_of_species_classes(uniprot, 'uniprot')
 

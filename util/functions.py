@@ -140,7 +140,8 @@ def lists_of_seq_helper(gene_id, aspect, list_of_ev, list_of_mf, list_of_mf_of_e
     return list_of_ev, list_of_mf, list_of_mf_of_ev, list_of_cc, list_of_cc_of_ev, list_of_bp, list_of_bp_of_ev
 
 
-def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_to_gene=None, id_list=None):
+def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_to_gene=None, id_list=None,
+             gaf_db="TRL"):
     exp_gaf = {}
     comp_gaf = {}
     # ev_code in experimental_evidence_codes
@@ -196,6 +197,12 @@ def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_
                     gene_id = potential_gene_ids[0]
             else:
                 gene_id = None
+            # Replace the DB and DB identifier to the one we used.
+            if type(gaf_db) is str and gene_id is not None:
+                gaf_line_info = line.split('\t')
+                gaf_line_info[0] = gaf_db
+                gaf_line_info[1] = gene_id
+                line = '\t'.join(gaf_line_info)
             if ev_code in experimental_evidence_codes and gene_id is not None:
                 list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp, \
                 list_of_bp_seqs, list_of_bp_exp = lists_of_seq_helper(

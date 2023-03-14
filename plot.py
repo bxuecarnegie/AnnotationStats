@@ -6,7 +6,7 @@ from util.draw import go_domain_by_species, completeness_by_species, experimenta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'util'))
 
-from util.functions import output_list_of_species_class, delim_parser
+from util.functions import output_list_of_species_stats, delim_parser
 from config import output_folder, model, doe, uniprot, lab_copyright
 
 

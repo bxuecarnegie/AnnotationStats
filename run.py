@@ -4,7 +4,7 @@ from joblib import Parallel, delayed
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'util'))
 
-from util.functions import output_list_of_species_class
+from util.functions import output_list_of_species_stats
 from util.draw import draw_pie_from_species, go_domain_by_species, completeness_by_species, \
     experimental_chart_by_species
 from config import output_folder, model, doe, uniprot, lab_copyright
@@ -44,11 +44,11 @@ def run_on_species_class(species_class, annot_ext='tsv'):
     exp_gaf = os.path.join(output_folder, getattr(species_class, 'species_type'), species_name + '.exp.' + annot_ext)
     with open(exp_gaf, 'w') as op:
         for gene_id in sorted(getattr(species_class, 'exp_gaf').keys()):
-            op.write('\n'.join(sorted(getattr(species_class, 'exp_gaf')[gene_id])))
+            op.write('\n'.join(sorted(getattr(species_class, 'exp_gaf')[gene_id])) + '\n')
     comp_gaf = os.path.join(output_folder, getattr(species_class, 'species_type'), species_name + '.comp.' + annot_ext)
     with open(comp_gaf, 'w') as op:
         for gene_id in sorted(getattr(species_class, 'comp_gaf').keys()):
-            op.write('\n'.join(sorted(getattr(species_class, 'comp_gaf')[gene_id])))
+            op.write('\n'.join(sorted(getattr(species_class, 'comp_gaf')[gene_id])) + '\n')
     # exp_tsv = os.path.join(output_folder, getattr(species_class, 'species_type'), species_name + '.exp.tsv')
     # write_tsv(getattr(species_class, 'list_of_exp'), getattr(species_class, 'list_of_mf_seqs'),
     #           getattr(species_class, 'list_of_cc_seqs'), getattr(species_class, 'list_of_bp_seqs'), exp_tsv)
@@ -64,15 +64,15 @@ def run_on_species_class(species_class, annot_ext='tsv'):
 
 def run_list_of_species_classes(species_class_list, species_type):
     output_file = os.path.join(output_folder, species_type + '.tsv')
-    # if species_type:
     if species_type == 'doe':
+        # if species_type:
         for species_class in species_class_list:
             # print(len(species_class.list_of_exp))
             run_on_species_class(species_class)
             # print(len(species_class.list_of_exp))
     else:
         Parallel(n_jobs=5)(delayed(run_on_species_class)(species_class) for species_class in species_class_list)
-    output_list_of_species_class(species_class_list, output_file)
+    output_list_of_species_stats(species_class_list, output_file)
     # domain_plot_path = os.path.join(output_folder, species_type, '.'.join([species_type, "domain.plot.png"]))
     # completeness_plot_path = os.path.join(output_folder, species_type,
     #                                       '.'.join([species_type, "completeness.plot.png"]))
@@ -84,8 +84,8 @@ def run_list_of_species_classes(species_class_list, species_type):
 
 
 if __name__ == '__main__':
-    # run_list_of_species_classes([model[0]], 'model')
-    run_list_of_species_classes(model, 'model')
-    run_list_of_species_classes(doe, 'doe')
-    run_list_of_species_classes(uniprot, 'uniprot')
+    run_list_of_species_classes([model[0]], 'model')
+    # run_list_of_species_classes(model, 'model')
+    # run_list_of_species_classes(doe, 'doe')
+    # run_list_of_species_classes(uniprot, 'uniprot')
 

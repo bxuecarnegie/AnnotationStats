@@ -125,19 +125,15 @@ def read_gff(gff_path, attribute_split=';', feature_type=None, attribute_type=No
     return res
 
 
-def lists_of_seq_helper(gene_id, aspect, list_of_ev, list_of_mf, list_of_mf_of_ev, list_of_cc, list_of_cc_of_ev,
-                        list_of_bp, list_of_bp_of_ev):
+def lists_of_seq_helper(gene_id, aspect, list_of_ev, list_of_mf, list_of_cc, list_of_bp):
     list_of_ev.add(gene_id)
     if aspect == 'F' or aspect == 'molecular_function':
         list_of_mf.add(gene_id)
-        list_of_mf_of_ev.add(gene_id)
     elif aspect == 'C' or aspect == 'cellular_component':
         list_of_cc.add(gene_id)
-        list_of_cc_of_ev.add(gene_id)
     elif aspect == 'P' or aspect == 'biological_process':
         list_of_bp.add(gene_id)
-        list_of_bp_of_ev.add(gene_id)
-    return list_of_ev, list_of_mf, list_of_mf_of_ev, list_of_cc, list_of_cc_of_ev, list_of_bp, list_of_bp_of_ev
+    return list_of_ev, list_of_mf, list_of_cc, list_of_bp
 
 
 def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_to_gene=None, id_list=None,
@@ -203,34 +199,31 @@ def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_
                 gaf_line_info[0] = gaf_db
                 gaf_line_info[1] = gene_id
                 line = '\t'.join(gaf_line_info)
+            if gene_id is not None:
+                _, list_of_mf_seqs, list_of_cc_seqs, list_of_bp_seqs = \
+                    lists_of_seq_helper(gene_id, aspect, set(), list_of_mf_seqs, list_of_cc_seqs, list_of_bp_seqs)
             if ev_code in experimental_evidence_codes and gene_id is not None:
-                list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp, \
-                list_of_bp_seqs, list_of_bp_exp = lists_of_seq_helper(
-                    gene_id, aspect, list_of_exp, list_of_mf_seqs, list_of_mf_exp, list_of_cc_seqs, list_of_cc_exp,
-                    list_of_bp_seqs, list_of_bp_exp)
+                list_of_exp, list_of_mf_exp, list_of_cc_exp, list_of_bp_exp = \
+                    lists_of_seq_helper(gene_id, aspect, list_of_exp, list_of_mf_exp, list_of_cc_exp, list_of_bp_exp)
                 dict_set_helper(exp_gaf, gene_id, line)
             elif gene_id is not None and ev_code != "ND":
                 # "ND" removed
-                list_of_comp, list_of_mf_seqs, list_of_mf_comp, list_of_cc_seqs, list_of_cc_comp, \
-                list_of_bp_seqs, list_of_bp_comp = lists_of_seq_helper(
-                    gene_id, aspect, list_of_comp, list_of_mf_seqs, list_of_mf_comp,
-                    list_of_cc_seqs, list_of_cc_comp, list_of_bp_seqs, list_of_bp_comp)
+                list_of_comp, list_of_mf_comp, list_of_cc_comp, list_of_bp_comp = \
+                    lists_of_seq_helper(gene_id, aspect, list_of_comp, list_of_mf_comp, list_of_cc_comp,
+                                        list_of_bp_comp)
                 dict_set_helper(comp_gaf, gene_id, line)
-    exp_gaf_only = {}
     comp_gaf_only = {}
-    for gene_id in sorted(exp_gaf.keys()):
-        dict_set_helper(exp_gaf_only, gene_id, exp_gaf[gene_id])
-        if gene_id in comp_gaf_only:
-            dict_set_helper(exp_gaf_only, gene_id, comp_gaf[gene_id])
     for gene_id in sorted(comp_gaf.keys()):
-        if gene_id not in exp_gaf_only:
+        if gene_id not in exp_gaf:
             dict_set_helper(comp_gaf_only, gene_id, comp_gaf[gene_id])
+        else:
+            dict_set_helper(exp_gaf, gene_id, comp_gaf[gene_id])
     return \
         sorted(list_of_exp), sorted(list_of_comp - list_of_exp), \
         sorted(list_of_mf_seqs), sorted(list_of_mf_exp), sorted(list_of_mf_comp - list_of_mf_exp), \
         sorted(list_of_cc_seqs), sorted(list_of_cc_exp), sorted(list_of_cc_comp - list_of_cc_exp), \
         sorted(list_of_bp_seqs), sorted(list_of_bp_exp), sorted(list_of_bp_comp - list_of_bp_exp), \
-        exp_gaf_only, comp_gaf_only
+        exp_gaf, comp_gaf_only
 
 
 def read_phytozome_annotation_info(annotation_info_path, go_dag):
@@ -262,8 +255,12 @@ def read_phytozome_annotation_info(annotation_info_path, go_dag):
                 for go_id in go_id_list:
                     res = go_dag.query_term(go_id)
                     if res is not None:
-                        lists_of_seq_helper(locus_id, res.namespace, list_of_comp, list_of_mf_seqs, list_of_mf_comp,
-                                            list_of_cc_seqs, list_of_cc_comp, list_of_bp_seqs, list_of_bp_comp)
+                        list_of_comp, list_of_mf_seqs, list_of_cc_seqs, list_of_bp_seqs = \
+                            lists_of_seq_helper(locus_id, res.namespace, list_of_comp, list_of_mf_seqs, list_of_cc_seqs,
+                                                list_of_bp_seqs)
+                        _, list_of_mf_comp, list_of_cc_comp, list_of_bp_comp = \
+                            lists_of_seq_helper(locus_id, res.namespace, set(), list_of_mf_comp, list_of_cc_comp,
+                                                list_of_bp_comp)
                         dict_set_helper(comp_annotation_info, locus_id, line)
                     else:
                         unfound_go_terms.add(go_id)
@@ -292,7 +289,7 @@ def get_num_and_pct(list_of_seqs, list_of_exp, list_of_comp, list_of_unknown):
         str(num_of_genes_unknown), pct_of_genes_unknown
 
 
-def output_list_of_species_class(list_of_species_class, output_path):
+def output_list_of_species_stats(list_of_species_class, output_path):
     with open(output_path, 'w') as op:
         op.write(
             '\t'.join(['ID', 'Taxon', 'Species', 'Type', 'Sequence Source', 'Sequence URL', 'GAF Source', 'GAF URL',

@@ -179,7 +179,7 @@ def read_gaf(gaf_path, id_idx=1, taxon_list=None, db_obj_id_only=False, protein_
                 potential_gene_ids = []
                 for db_name in sorted(db_potential_names):
                     try:
-                        potential_gene_ids += [g for g in sorted(protein_to_gene[db_name])]
+                        potential_gene_ids += [g for g in sorted(protein_to_gene[db_name]) if g != '']
                     except KeyError:
                         continue
             if len(potential_gene_ids) > 0:
@@ -261,7 +261,17 @@ def read_phytozome_annotation_info(annotation_info_path, go_dag):
                         _, list_of_mf_comp, list_of_cc_comp, list_of_bp_comp = \
                             lists_of_seq_helper(locus_id, res.namespace, set(), list_of_mf_comp, list_of_cc_comp,
                                                 list_of_bp_comp)
-                        dict_set_helper(comp_annotation_info, locus_id, line)
+                        info_list = line.split('\t')
+                        info_list[9] = go_id
+                        if res.namespace == 'biological_process':
+                            locus_aspect = 'P'
+                        elif res.namespace == 'molecular_function':
+                            locus_aspect = 'F'
+                        elif res.namespace == 'cellular_component':
+                            locus_aspect = 'C'
+                        else:
+                            continue
+                        dict_set_helper(comp_annotation_info, locus_id, '\t'.join(info_list[:11]) + '\t' + locus_aspect)
                     else:
                         unfound_go_terms.add(go_id)
     print("Unfound GO", unfound_go_terms)

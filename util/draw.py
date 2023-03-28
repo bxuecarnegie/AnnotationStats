@@ -209,6 +209,8 @@ def go_domain_by_species(list_of_species, plot_path, num_of_rows=3, extra_txt=No
                 annot_count = [len(getattr(species_class, 'list_of_cc_exp')),
                                len(getattr(species_class, 'list_of_cc_comp')),
                                len(getattr(species_class, 'list_of_cc_unknown'))]
+            else:
+                continue
             axs[0][idx].set_title("$\it{" + species_name + "}$", fontsize=40)
             # if len(getattr(species_class, 'list_of_exp')) == 0:
             #     pie_color = colors_no_exp

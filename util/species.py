@@ -112,7 +112,7 @@ class Species(object):
                     else:
                         genes = set(re.split(r'[;\s]+', gene_names))
                     # Get first of sorted all possible gene names
-                    gene = sorted(genes)[0]
+                    gene = [g for g in sorted(genes) if g != ''][0]
                     seqs_from_tab.add(gene)
                     protein_to_genes.setdefault(entry, [gene])
             if len(protein_to_genes) == 0:
@@ -123,6 +123,7 @@ class Species(object):
         else:
             print('Gene File type unknown', self.gene_type)
             raise SystemError
+        self.list_of_seqs = [s for s in self.list_of_seqs if s != '']
 
     def read_mapping_file(self):
         if self.mapping_file is not None and self.protein_to_gene_map is None:

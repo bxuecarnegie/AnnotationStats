@@ -64,8 +64,8 @@ def run_on_species_class(species_class, annot_ext='tsv'):
 
 def run_list_of_species_classes(species_class_list, species_type):
     output_file = os.path.join(output_folder, species_type + '.tsv')
-    if species_type == 'doe':
-        # if species_type:
+    # if species_type == 'doe':
+    if species_type:
         for species_class in species_class_list:
             # print(len(species_class.list_of_exp))
             run_on_species_class(species_class)
@@ -84,8 +84,8 @@ def run_list_of_species_classes(species_class_list, species_type):
 
 
 if __name__ == '__main__':
-    run_list_of_species_classes([model[0]], 'model')
+    # run_list_of_species_classes([model[0]], 'model')
     # run_list_of_species_classes(model, 'model')
-    # run_list_of_species_classes(doe, 'doe')
+    run_list_of_species_classes(doe, 'doe')
     # run_list_of_species_classes(uniprot, 'uniprot')
 

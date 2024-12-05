@@ -5,3 +5,4 @@ config.py
 test*
 *.pyc
 __pycache__/
+sequence_ontology.py

@@ -84,8 +84,7 @@ def run_list_of_species_classes(species_class_list, species_type):
 
 
 if __name__ == '__main__':
-    # run_list_of_species_classes([model[0]], 'model')
-    # run_list_of_species_classes(model, 'model')
+    run_list_of_species_classes(model, 'model')
     run_list_of_species_classes(doe, 'doe')
-    # run_list_of_species_classes(uniprot, 'uniprot')
+    run_list_of_species_classes(uniprot, 'uniprot')
 

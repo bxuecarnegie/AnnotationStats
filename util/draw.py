@@ -2,7 +2,10 @@ import os
 
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib_venn import venn3_unweighted, venn2_unweighted
+from matplotlib_venn import venn3, venn2
+
+from matplotlib_venn.layout.venn2 import DefaultLayoutAlgorithm as Venn2Layout
+from matplotlib_venn.layout.venn3 import DefaultLayoutAlgorithm as Venn3Layout
 
 from util.definitions import annot_type_all, colors_all, aspect_order, annot_type_no_exp, colors_no_exp
 
@@ -51,9 +54,13 @@ def add_venn_to_plt_axes(axs, idx, venn_sets, venn_labels, three_part=True, font
                          xlabel=None):
     if type(idx) is int:
         if three_part is True:
-            v = venn3_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx])
+            # v = venn3_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx])
+            v = venn3(subsets=tuple([set(v) for v in venn_sets]), set_labels=venn_labels, ax=axs[idx],
+                      layout_algorithm=Venn3Layout(normalize_to=1.0, fixed_subset_sizes=(1,1,1,1,1,1,1)))
         else:
-            v = venn2_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx])
+            # v = venn2_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx])
+            v = venn2(subsets=tuple([set(v) for v in venn_sets]), set_labels=venn_labels, ax=axs[idx],
+                      layout_algorithm=Venn2Layout(normalize_to=1.0, fixed_subset_sizes=(1,1,1)))
         if title is not None:
             axs[idx].set_title(title)
         if ylabel is not None:
@@ -68,9 +75,13 @@ def add_venn_to_plt_axes(axs, idx, venn_sets, venn_labels, three_part=True, font
                     v.subset_labels[x].set_fontsize(font_size)
     elif type(idx) is tuple:
         if three_part is True:
-            v = venn3_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx[0]][idx[1]])
+            # v = venn3_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx[0]][idx[1]])
+            v = venn3(tuple([set(v) for v in venn_sets]), set_labels=venn_labels, ax=axs[idx[0]][idx[1]],
+                      layout_algorithm=Venn3Layout(normalize_to=1.0, fixed_subset_sizes=(1,1,1,1,1,1,1)))
         else:
-            v = venn2_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx[0]][idx[1]])
+            # v = venn2_unweighted([set(v) for v in venn_sets], set_labels=venn_labels, ax=axs[idx[0]][idx[1]])
+            v = venn2(tuple([set(v) for v in venn_sets]), set_labels=venn_labels, ax=axs[idx[0]][idx[1]],
+                      layout_algorithm=Venn2Layout(normalize_to=1.0, fixed_subset_sizes=(1,1,1)))
         if title is not None:
             axs[idx[0]][idx[1]].set_title(title)
         if ylabel is not None:

@@ -5,6 +5,9 @@ from tqdm import tqdm
 from util.definitions import aspect_list, experimental_evidence_codes, annot_type_all, annot_type_no_exp, aspect_order
 
 
+PROTEIN_CODING_GENE = "SO:0001217"
+
+
 def flatten_list(input_list):
     return [item for sublist in input_list for item in sorted(sublist)]
 
@@ -106,6 +109,7 @@ def read_gff(gff_path, attribute_split=';', feature_type=None, attribute_type=No
         attribute_type = ['ID=']
     attr_regex = re.compile('|'.join(['^' + a for a in attribute_type]))
     res = []
+
     with open(gff_path, 'r', errors='replace') as gp:
         for line_num, info in tqdm(delim_parser(gp, indices=[2, -1])):
             if info is None:
@@ -119,7 +123,12 @@ def read_gff(gff_path, attribute_split=';', feature_type=None, attribute_type=No
                         bio_type = [bio_type]
                     bio_type_regex = re.compile('|'.join([b for b in bio_type]))
                     if re.search(bio_type_regex, attribute):
-                        res.append(info)
+                        if "Ontology_term=SO:" in bio_type:
+                            so_match = re.findall(r'SO:\d+', attribute)
+                            if PROTEIN_CODING_GENE in so_match:
+                                res.append(info)
+                        else:
+                            res.append(info)
                 else:
                     res.append(info)
     return res

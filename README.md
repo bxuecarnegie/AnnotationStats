@@ -12,3 +12,5 @@ Repository for scripts to generate stats and plots for the Geneome Annotation St
 
 Set up species file paths in config.py (use config_temp.py as template). Then use 'python run.py' to generate statistics
 and plots in the output folder specified in config.py.
+
+## 
